@@ -10,6 +10,9 @@ set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
 # enable SIMD
 add_definitions("-DSOFTGL_SIMD_OPT")
 
+# enable multi-threading for rasterization
+add_definitions("-DRASTER_MULTI_THREAD")
+
 # debug
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions("-DDEBUG")

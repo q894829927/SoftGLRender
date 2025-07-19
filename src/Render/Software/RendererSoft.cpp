@@ -17,7 +17,14 @@
 
 namespace SoftGL {
 
-#define RASTER_MULTI_THREAD
+// Constructor with optimized thread configuration
+RendererSoft::RendererSoft() {
+  // Optimize thread count for better performance
+  size_t threadCount = std::thread::hardware_concurrency();
+  // Use at least 2 threads but not more than 8 for software rendering
+  threadCount = std::max(2ul, std::min(8ul, threadCount));
+  threadPool_ = std::unique_ptr<ThreadPool>(new ThreadPool(threadCount));
+}
 
 // framebuffer
 std::shared_ptr<FrameBuffer> RendererSoft::createFrameBuffer(bool offscreen) {
@@ -320,7 +327,7 @@ void RendererSoft::processRasterization() {
       }
       break;
     case Primitive_TRIANGLE:
-      threadQuadCtx_.resize(threadPool_.getThreadCnt());
+      threadQuadCtx_.resize(threadPool_->getThreadCnt());
       for (auto &ctx : threadQuadCtx_) {
         ctx.SetVaryingsSize(varyingsAlignedCnt_);
         ctx.shaderProgram = shaderProgram_->clone();
@@ -334,7 +341,7 @@ void RendererSoft::processRasterization() {
         df_ctx.p3 = ctx.pixels[3].varyingsFrag;
       }
       rasterizationPolygons(primitives_);
-      threadPool_.waitTasksFinish();
+      threadPool_->waitTasksFinish();
       break;
   }
 }
@@ -731,7 +738,7 @@ void RendererSoft::rasterizationTriangle(VertexHolder *v0, VertexHolder *v1, Ver
   for (int blockY = 0; blockY < blockCntY; blockY++) {
     for (int blockX = 0; blockX < blockCntX; blockX++) {
 #ifdef RASTER_MULTI_THREAD
-      threadPool_.pushTask([&, vert, bounds, blockSize, blockX, blockY](int thread_id) {
+      threadPool_->pushTask([&, vert, bounds, blockSize, blockX, blockY](int thread_id) {
         // init pixel quad
         auto pixelQuad = threadQuadCtx_[thread_id];
 #else
@@ -835,7 +842,12 @@ void RendererSoft::rasterizationPixelQuad(PixelQuadContext &quad) {
     auto &builtIn = quad.shaderProgram->getShaderBuiltin();
 
     // per-sample operations
-    if (pixel.sampleCount > 1) {
+    // Optimize for disabled MSAA
+    if (!multiSampleEnabled_ && pixel.sampleCount > 1) {
+      // Use single sample when MSAA is disabled for performance
+      auto &sample = pixel.samples[0];
+      processPerSampleOperations(sample.fboCoord.x, sample.fboCoord.y, sample.position.z, builtIn.FragColor, 0);
+    } else if (pixel.sampleCount > 1) {
       for (int idx = 0; idx < pixel.sampleCount; idx++) {
         auto &sample = pixel.samples[idx];
         if (!sample.inside) {
@@ -855,7 +867,13 @@ bool RendererSoft::earlyZTest(PixelQuadContext &quad) {
     if (!pixel.inside) {
       continue;
     }
-    if (pixel.sampleCount > 1) {
+    // Optimize for disabled MSAA
+    if (!multiSampleEnabled_ && pixel.sampleCount > 1) {
+      // Use single sample when MSAA is disabled for performance
+      auto &sample = pixel.samples[0];
+      sample.inside = processDepthTest(sample.fboCoord.x, sample.fboCoord.y, sample.position.z, 0, true);
+      pixel.inside = sample.inside;
+    } else if (pixel.sampleCount > 1) {
       bool inside = false;
       for (int idx = 0; idx < pixel.sampleCount; idx++) {
         auto &sample = pixel.samples[idx];
@@ -878,6 +896,11 @@ bool RendererSoft::earlyZTest(PixelQuadContext &quad) {
 }
 
 void RendererSoft::multiSampleResolve() {
+  // Skip multi-sample resolve if disabled for performance
+  if (!multiSampleEnabled_ || !fboColor_->multiSample) {
+    return;
+  }
+
   if (!fboColor_->buffer) {
     fboColor_->buffer = Buffer<RGBA>::makeDefault(fboColor_->width, fboColor_->height);
   }
@@ -889,7 +912,7 @@ void RendererSoft::multiSampleResolve() {
     auto *rowSrc = srcPtr + row * fboColor_->width;
     auto *rowDst = dstPtr + row * fboColor_->width;
 #ifdef RASTER_MULTI_THREAD
-    threadPool_.pushTask([&, rowSrc, rowDst](int thread_id) {
+    threadPool_->pushTask([&, rowSrc, rowDst](int thread_id) {
 #endif
       auto *src = rowSrc;
       auto *dst = rowDst;
@@ -908,7 +931,7 @@ void RendererSoft::multiSampleResolve() {
 #endif
   }
 
-  threadPool_.waitTasksFinish();
+  threadPool_->waitTasksFinish();
 }
 
 RGBA *RendererSoft::getFrameColor(int x, int y, int sample) {
@@ -1160,6 +1183,29 @@ void RendererSoft::interpolateBarycentricSIMD(float *varsOut,
     varsOut[idx] += *(inVar2 + idx) * bc[2];
   }
 #endif
+}
+
+void RendererSoft::setPerformanceLevel(PerformanceLevel level) {
+  switch (level) {
+    case PERFORMANCE_LOW:
+      // Maximum performance settings
+      rasterBlockSize_ = 8;
+      multiSampleEnabled_ = false;
+      earlyZ_ = true;
+      break;
+    case PERFORMANCE_MEDIUM:
+      // Balanced settings
+      rasterBlockSize_ = 16;
+      multiSampleEnabled_ = true;
+      earlyZ_ = true;
+      break;
+    case PERFORMANCE_HIGH:
+      // Quality-focused settings
+      rasterBlockSize_ = 32;
+      multiSampleEnabled_ = true;
+      earlyZ_ = true;
+      break;
+  }
 }
 
 }

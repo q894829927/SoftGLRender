@@ -17,6 +17,7 @@ namespace SoftGL {
 
 class RendererSoft : public Renderer {
  public:
+  RendererSoft();
   RendererType type() override { return Renderer_SOFT; }
 
   // framebuffer
@@ -51,6 +52,19 @@ class RendererSoft : public Renderer {
 
  public:
   inline void setEnableEarlyZ(bool enable) { earlyZ_ = enable; };
+  
+  // Performance configuration
+  enum PerformanceLevel {
+    PERFORMANCE_LOW = 0,     // Maximum performance, minimal quality
+    PERFORMANCE_MEDIUM = 1,  // Balanced performance and quality
+    PERFORMANCE_HIGH = 2     // Best quality, lower performance
+  };
+  
+  void setPerformanceLevel(PerformanceLevel level);
+  void setRasterBlockSize(int blockSize) { rasterBlockSize_ = blockSize; }
+  void setMultiSampleEnabled(bool enabled) { multiSampleEnabled_ = enabled; }
+  int getRasterBlockSize() const { return rasterBlockSize_; }
+  bool isMultiSampleEnabled() const { return multiSampleEnabled_; }
 
  private:
   void processVertexShader();
@@ -124,10 +138,11 @@ class RendererSoft : public Renderer {
 
   float pointSize_ = 1.f;
   bool earlyZ_ = true;
+  bool multiSampleEnabled_ = true;
   int rasterSamples_ = 1;
-  int rasterBlockSize_ = 32;
+  int rasterBlockSize_ = 16;  // Optimized default block size for better cache performance
 
-  ThreadPool threadPool_;
+  std::unique_ptr<ThreadPool> threadPool_;
   std::vector<PixelQuadContext> threadQuadCtx_;
 };
 

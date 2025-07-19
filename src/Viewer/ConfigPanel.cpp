@@ -74,6 +74,26 @@ void ConfigPanel::drawSettings() {
   }
   ImGui::Separator();
 
+  // Software renderer performance settings
+  if (config_.rendererType == 0) { // Software renderer
+    ImGui::Text("Software Renderer Performance:");
+    const char *perfItems[] = {
+        "Low (Max Performance)",
+        "Medium (Balanced)",
+        "High (Max Quality)",
+    };
+    for (int i = 0; i < 3; i++) {
+      if (ImGui::RadioButton(perfItems[i], config_.softwarePerformanceLevel == i)) {
+        config_.softwarePerformanceLevel = i;
+      }
+    }
+    
+    ImGui::Checkbox("Multi-sampling", &config_.softwareMultiSample);
+    ImGui::SliderInt("Block Size", &config_.softwareBlockSize, 8, 32);
+    ImGui::Text("Lower block size = better cache performance");
+    ImGui::Separator();
+  }
+
   // reset camera
   ImGui::Separator();
   ImGui::Text("camera:");

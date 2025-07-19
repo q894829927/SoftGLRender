@@ -133,7 +133,8 @@ class FS : public ShaderIBLPrefilter {
     glm::vec3 R = N;
     glm::vec3 V = R;
 
-    const uint32_t SAMPLE_COUNT = 1024u;
+    // Reduced sample count for better performance in software rendering
+    const uint32_t SAMPLE_COUNT = 512u;
     glm::vec3 prefilteredColor = glm::vec3(0.0f);
     float totalWeight = 0.0f;
 

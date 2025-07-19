@@ -53,6 +53,11 @@ class Config {
 
   int aaType = AAType_NONE;
   int rendererType = Renderer_SOFT;
+  
+  // Software renderer performance settings
+  int softwarePerformanceLevel = 1; // 0=Low, 1=Medium, 2=High
+  bool softwareMultiSample = true;
+  int softwareBlockSize = 16;
 };
 
 }
