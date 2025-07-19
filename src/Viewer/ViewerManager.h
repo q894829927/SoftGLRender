@@ -108,6 +108,14 @@ class ViewerManager {
       rendererType_ = config_->rendererType;
       viewer->create(width_, height_, outTexId_);
     }
+    
+    // Update software renderer settings when using software renderer
+    if (config_->rendererType == Renderer_SOFT) {
+      auto *viewerSoft = dynamic_cast<ViewerSoftware *>(viewer.get());
+      if (viewerSoft) {
+        viewerSoft->updateSoftwareRendererSettings(*config_);
+      }
+    }
     viewer->configRenderer();
     if (dumpFrame_) {
       RenderDebugger::startFrameCapture(viewer->getDevicePointer());

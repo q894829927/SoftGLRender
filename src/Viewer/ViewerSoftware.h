@@ -50,6 +50,18 @@ class ViewerSoftware : public Viewer {
     }
     return renderer;
   }
+  
+  void updateSoftwareRendererSettings(const Config &config) {
+    auto *rendererSoft = dynamic_cast<RendererSoft *>(renderer_.get());
+    if (rendererSoft) {
+      // Apply performance level
+      rendererSoft->setPerformanceLevel(static_cast<RendererSoft::PerformanceLevel>(config.softwarePerformanceLevel));
+      
+      // Apply custom settings if not using preset
+      rendererSoft->setMultiSampleEnabled(config.softwareMultiSample);
+      rendererSoft->setRasterBlockSize(config.softwareBlockSize);
+    }
+  }
 
   bool loadShaders(ShaderProgram &program, ShadingModel shading) override {
     auto *programSoft = dynamic_cast<ShaderProgramSoft *>(&program);
